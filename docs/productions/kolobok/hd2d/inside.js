@@ -4,7 +4,9 @@ import { woodPlanks, plaster, glow, blob } from './px.js';
 import { mat, mesh, box, mats, fire, windowQuad } from './kit.js';
 import { particles, beamCard, flick } from './fx.js';
 import { seg, ss, lerp, back } from '/core/lib.js';
-import { sprite, voxChar, voxKolobok, popScale } from './cast.js';
+import { sprite, voxKolobok, popScale } from './cast.js';
+import * as RIG from './rigs.js';
+import { path, yawOf, blendAngle } from './actors.js';
 
 export function buildInside() {
   const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2('#2a1a14', .02); scene.background = new THREE.Color('#120a08');
@@ -40,7 +42,7 @@ export function buildInside() {
   const dust = particles(60, (i, t, o) => { o.x = -1.8 + Math.sin(i + t * .3) * .6 + (i % 7) * .1; o.y = .6 + ((i * .37 + t * .05) % 1) * 1.6; o.z = -2.5 + (i % 5) * .45; o.a = .4 + .3 * Math.sin(t * 2 + i); o.s = .025; o.r = 1; o.g = .95; o.b = .85; }, { soft: 1 });
   scene.add(dust);
   // cast
-  const baba = voxChar('baba', 1.72); baba.position.set(-.6, 0, -.2); scene.add(baba); const bs = blob(.45, .5); bs.position.set(-.6, .02, -.15); scene.add(bs);
+  const BR = RIG.baba(), baba = BR.root, bp = path([[8.57, -4.4, .6], [10.1, -.6, -.2]]); scene.add(baba); const bs = blob(.45, .5); bs.position.set(-.6, .02, -.15); scene.add(bs);
   const K = voxKolobok(.55); scene.add(K.mesh); const ks = blob(.3, .5); scene.add(ks);
 
   function update(t, shot, cam, post, renderer) {
@@ -54,8 +56,9 @@ export function buildInside() {
     fireL.position.set(1.9 + Math.sin(t * 7) * .04, .9, .2);
     sparks.userData.update(t); dust.userData.update(t);
     beam.material.uniforms.t.value = t; beam.userData.aim(new THREE.Vector3(-1.8, 2.1, -3.1), new THREE.Vector3(.3, -.6, .75), cam);
-    const pb = popScale(t, 8.9, 99); baba.visible = pb > .01; baba.scale.set(1, Math.max(.01, pb), 1);
-    baba.rotation.y = Math.atan2(cam.position.x - baba.position.x, cam.position.z - baba.position.z) * .6;
+    const P = bp(t), mv = P.v > .02; baba.position.set(P.x, 0, P.z); bs.position.set(P.x, .02, P.z + .05);
+    baba.rotation.y = mv ? yawOf(P.dir, false) : blendAngle(yawOf(P.dir ?? Math.PI / 2, false), .35, ss(seg(t, P.tStop, P.tStop + .5)));
+    BR.pose({ t, phase: P.d / BR.stride, moving: mv ? Math.min(1, P.v * 1.4 + .3) : 0, nod: t > 13.6 && t < 15 ? .6 : 0 });
     const kv = t >= 13.6; K.mesh.visible = kv; ks.visible = kv;
     if (kv) { const s = back(seg(t, 13.6, 14.2), 2.6); K.mesh.scale.setScalar(Math.max(.01, s)); const x = lerp(1.9, 1.2, ss(seg(t, 14.4, 15.4))), y = .55 + Math.sin(Math.PI * seg(t, 14.4, 15.4)) * .5 - ss(seg(t, 14.4, 15.4)) * .27; K.mesh.position.set(x, y, -.2); K.set(-ss(seg(t, 14.4, 15.4)) * 5); ks.position.set(x, .02, -.15); }
     post.dof.focus = cam.position.distanceTo(new THREE.Vector3(.6, 1, -.6)); post.dof.aper = 300; post.dof.maxCoc = 18;

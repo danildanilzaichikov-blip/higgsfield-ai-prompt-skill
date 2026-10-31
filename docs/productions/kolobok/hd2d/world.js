@@ -4,7 +4,9 @@ import { PX, ramp, h2, fbm, ground, woodPlanks, shingles, billboard, glow, blob,
 import { mat, mesh, box, mats, house } from './kit.js';
 import { sky, stars, particles, beamCard, flick } from './fx.js';
 import { track, seg, ss, lerp, clamp } from '/core/lib.js';
-import { TL, sprite, voxChar, voxKolobok, popScale, kolobokPath } from './cast.js';
+import { TL, sprite, voxKolobok, popScale, kolobokPath, FOXNOSE } from './cast.js';
+import * as RIG from './rigs.js';
+import { path, yawOf, blendAngle } from './actors.js';
 
 const C = c => new THREE.Color(c);
 
@@ -66,7 +68,7 @@ export function buildWorld() {
     MM.shutter = mat(woodPlanks(24, 24, { pw: 4, len: 96, nails: false, seed: 3, cols: ['#1a2a5a', '#2a4488', '#3e62b4', '#5a84d4'] }));
   }
   const IZ = { x: 0, z: -4.5, w: 6, d: 4, h: 2.6 };
-  const hut = house({ x: IZ.x, z: IZ.z, w: IZ.w, d: IZ.d, h: IZ.h, wall: 'log', roof: 'roof3', windows: [[-1.5, 1.4], [1.5, 1.4]], door: false });
+  const hut = house({ x: IZ.x, z: IZ.z, w: IZ.w, d: IZ.d, h: IZ.h, wall: 'log', roof: 'roof3', windows: [[-1.5, 1.4], [1.5, 1.4]], door: .001 });
   scene.add(hut);
   for (const wx of [-1.5, 1.5]) {
     const fz = IZ.z + IZ.d / 2;
@@ -81,33 +83,58 @@ export function buildWorld() {
   for (let i = 0; i < 14; i++) { const p = box(.14, 1.0 + (i % 2) * .1, .08, MM.plank); p.position.set(-9 + i * .32, 0, -1.6); scene.add(p); }
   const rail = box(4.6, .1, .06, MM.plank); rail.position.set(-6.9, .7, -1.58); scene.add(rail);
 
-  // —— billboards ——
+  // —— forest: tree rows at several depths, understory along the road ——
   const BB = [];
-  const put = (name, x, z, hM, o = {}) => { const b = sprite(name, hM, o); b.position.set(x, 0, z); scene.add(b); BB.push(b); const s = blob(hM * .18, .35); s.position.set(x, .02, z + .05); scene.add(s); return b; };
-  [[-11, -6], [-8.5, -8], [6.5, -7], [8.8, -5.5]].forEach(([x, z], i) => put('birch' + (i % 4), x, z, 6.2));
-  [[-5.2, -1.3], [-4.6, -1.4], [-4.0, -1.3]].forEach(([x, z]) => put('sunflower', x, z, 1.5));
-  for (let i = 0; i < 9; i++) put('birch' + (i % 4), 10 + i * 2.0 + h2(i, 1, 3) * 1.2, -3.5 - h2(i, 2, 3) * 6, 6 + h2(i, 3, 3) * 1.5);
-  [11, 13.5, 22.5, 25].forEach((x, i) => put('birch' + (i % 4), x, 4.4 + h2(i, 4, 3), 7.5));
-  for (let i = 0; i < 10; i++) put('spruce' + (i % 4), 26.5 + i * 1.6 + h2(i, 5, 3), -3 - h2(i, 6, 3) * 7, 6 + h2(i, 7, 3) * 2.5);
-  for (let i = 0; i < 4; i++) put('spruce' + (i % 4), 27 + i * 4.2, 4.0 + h2(i, 8, 3), 8.5);
-  [[29.5, -1.6], [36.5, -1.4], [38.2, 1.6]].forEach(([x, z]) => put('mushroom', x, z, .45));
-  for (let i = 0; i < 9; i++) put('oak' + (i % 3), 42.5 + i * 1.8 + h2(i, 9, 3), -3.2 - h2(i, 10, 3) * 6, 6.5 + h2(i, 11, 3) * 2);
-  [43, 57.5].forEach((x, i) => put('oak' + i, x, 4.6, 8));
-  [[45, -1.6], [55.5, -1.5]].forEach(([x, z]) => put('berrybush', x, z, 1.1));
-  put('hive', 52.6, -2.4, .9).position.y = 2.2;
-  for (let i = 0; i < 7; i++) put('birch' + (i % 4), 58.5 + i * 3.4 + h2(i, 12, 3) * 1.5, -5 - h2(i, 13, 3) * 5, 6.5);
-  [[60, 3.8], [72.5, 4.2]].forEach(([x, z]) => put('tree' + (x > 70 ? 1 : 0), x, z, 7));
+  const put = (name, x, z, hM, o = {}) => { const b = sprite(name, hM, o); b.position.set(x, o.y ?? 0, z); scene.add(b); BB.push(b); if (!o.noBlob) { const s = blob(hM * .18, .35); s.position.set(x, .02, z + .05); scene.add(s); } return b; };
+  const H = (i, s) => h2(i, s, 9);
+  const AVOID = [16.75, 32.75, 48.75, 64.75];
+  const rows = (kind, n, x0, x1, z0, z1, h0, h1, seed, o = {}) => { for (let i = 0; i < n; i++) if (!(z0 > 2 && AVOID.some(c => Math.abs(x0 + (x1 - x0) * (i + H(i, seed)) / n - c) < 4.2))) put(kind + (i % (o.v ?? 4)), x0 + (x1 - x0) * (i + H(i, seed)) / n, z0 + (z1 - z0) * H(i, seed + 1), h0 + (h1 - h0) * H(i, seed + 2), o); };
+  // yard
+  [[-11, -6], [-8.5, -8], [6.5, -7], [8.8, -5.5], [-13, -10], [4.5, -11]].forEach(([x, z], i) => put('birch' + (i % 4), x, z, 6.2));
+  rows('tree', 6, -16, 8, -16, -12, 5, 7, 3, { v: 2 });
+  [[-5.2, -1.3], [-4.6, -1.4], [-4.0, -1.3], [3.6, -2.0], [4.2, -2.1]].forEach(([x, z]) => put('sunflower', x, z, 1.5));
+  // birch grove
+  rows('birch', 18, 9.5, 26, -9, -3, 5.6, 7.6, 11); rows('birch', 14, 9.5, 26, -17, -10, 6, 8, 12); rows('birch', 5, 10, 25.5, 4.3, 5.2, 7, 8, 13);
+  // spruce wood
+  rows('spruce', 18, 26.2, 42, -9, -2.8, 5.5, 8.5, 21); rows('spruce', 16, 26.2, 42, -18, -10, 7, 9.5, 22); rows('spruce', 5, 27, 41, 4.0, 5.0, 8, 9.5, 23);
+  [[29.5, -1.6], [36.5, -1.4], [38.2, 1.6], [27.8, 1.9], [40.5, -1.8]].forEach(([x, z]) => put('mushroom', x, z, .45));
+  // thicket
+  rows('oak', 16, 42.2, 58, -9, -3, 6.5, 8.8, 31, { v: 3 }); rows('oak', 12, 42.2, 58, -17, -10, 7, 9.5, 32, { v: 3 }); [43.2, 54.5].forEach((x, i) => put('oak' + i, x, 4.6, 8));
+  [[45, -1.6], [55.5, -1.5], [52, 2.2]].forEach(([x, z]) => put('berrybush', x, z, 1.1));
+  put('hive', 52.6, -2.4, .9, { y: 2.2, noBlob: 1 });
+  // glade ring
+  rows('birch', 9, 58.5, 82, -9, -4.5, 6, 7.5, 41); rows('tree', 8, 58.5, 82, -16, -10, 6, 8, 42, { v: 2 }); [[60, 3.8], [72.5, 4.2]].forEach(([x, z]) => put('tree' + (x > 70 ? 1 : 0), x, z, 7));
+  // understory scattered along both road edges
+  const under = ['fern0', 'fern1', 'fern2', 'tuft0', 'tuft1', 'tuft2', 'flowers0', 'flowers1', 'flowers2', 'flowers3', 'rock0', 'rock1', 'rock2'];
+  for (let i = 0; i < 260; i++) {
+    const x = -10 + i * .33 + H(i, 50) * .3, side = i % 2 ? 1 : -1, z = side > 0 ? 1.5 + H(i, 51) * 2.6 : -1.45 - H(i, 51) * 4.5;
+    if (x > -3 && x < 3 && z < 0) continue;                                     // keep the izba yard clear
+    const biome = x < 9 ? 0 : x < 26 ? 1 : x < 42 ? 2 : x < 58 ? 3 : 4;
+    const pool = [[6, 7, 8, 9, 3, 4], [6, 8, 9, 3, 4, 5, 0], [0, 1, 2, 3, 10, 11], [0, 1, 2, 11, 12, 5], [6, 7, 8, 9, 3, 4, 5]][biome];
+    const name = under[pool[Math.floor(H(i, 52) * pool.length)]];
+    put(name, x, z, name.startsWith('rock') ? .4 + H(i, 53) * .3 : name.startsWith('fern') ? .7 + H(i, 53) * .4 : .35 + H(i, 53) * .25, { noBlob: 1, shadow: false });
+  }
   const stump = new THREE.Mesh(new THREE.CylinderGeometry(.45, .55, .55, 10).translate(0, .27, 0), MM.log); stump.position.set(69.5, 0, -1.6); stump.castShadow = true; scene.add(stump);
   const log = new THREE.Mesh(new THREE.CylinderGeometry(.3, .3, 3.2, 10), MM.log); log.rotation.z = Math.PI / 2; log.position.set(47.5, .3, -2.2); log.castShadow = true; scene.add(log);
+  const log2 = new THREE.Mesh(new THREE.CylinderGeometry(.25, .25, 2.4, 10), MM.log); log2.rotation.z = Math.PI / 2; log2.rotation.y = .3; log2.position.set(31.2, .25, -1.9); log2.castShadow = true; scene.add(log2);
 
-  // —— cast ——
-  const cast = {
-    ded: voxChar('ded', 1.75), baba: voxChar('baba', 1.72), hare: voxChar('hare', 1.0), wolf: voxChar('wolf', 1.15),
-    bear: voxChar('bear', 2.1), fox: voxChar('fox', 1.05),
+  // —— cast: articulated voxel creatures that walk in and out ——
+  const E = TL.enc;
+  const A = {
+    ded: { rig: RIG.ded(), quad: false, rest: 0, vis: [2.9, 9], p: path([[3.0, 0, -2.3], [4.2, -1.9, -.7]]) },
+    baba: { rig: RIG.baba(), quad: false, rest: 0, vis: [3.3, 9], p: path([[3.4, .3, -2.3], [4.6, -.6, -.5]]) },
+    hare: { rig: RIG.hare(), quad: true, rest: Math.PI, vis: [22, 28.6], p: path([[22.4, E.hare[0] + 1.6, -7.5], [23.7, E.hare[0], .3], [27.3, E.hare[0], .3], [28.6, E.hare[0] + 1.8, -7]]) },
+    wolf: { rig: RIG.wolf(), quad: true, rest: Math.PI, vis: [28, 34.3], p: path([[28.0, E.wolf[0] + 2.6, -8], [29.6, E.wolf[0], .3], [33.0, E.wolf[0], .3], [34.3, E.wolf[0] + 3, -7.5]]) },
+    bear: { rig: RIG.bear(), quad: true, rest: Math.PI, vis: [33.6, 40], p: path([[33.6, E.bear[0] + 3, -8], [35.3, E.bear[0], .2], [38.5, E.bear[0], .2], [40.0, E.bear[0] + 3, -7.5]]) },
+    fox: { rig: RIG.fox(), quad: true, rest: Math.PI, vis: [39.9, 56], p: path([[39.9, E.fox[0] + 3, -6], [41.7, E.fox[0], .35], [51.7, E.fox[0], .35], [54.6, E.fox[0] + 3.2, -7.5]]) },
+    deer: { rig: RIG.deer(), quad: true, rest: Math.PI * .85, vis: [40, 60], p: path([[40, 75, -7.2], [44, 75, -7.2], [47, 73.5, -6.8]]) },
+    squir: { rig: RIG.squirrel(), quad: true, rest: Math.PI * .6, vis: [28.5, 32], p: path([[28.5, 31.4, -1.9], [30.6, 31.4, -1.9], [31.8, 32.6, -6.5]]), y: .48 },
+    hedge: { rig: RIG.hedgehog(), quad: true, rest: 0, vis: [34.2, 40.1], p: path([[34.2, 45.6, -3.4], [40.0, 46.6, -.9]], { linear: 1 }) },
+    owl: { rig: RIG.owl(), quad: false, rest: 0, vis: [34.2, 40.1], p: path([[34, 47.2, -2.2]]), y: .58 },
   };
-  const POS = { ded: [-1.9, -.7], baba: [-.6, -.5], hare: [TL.enc.hare[0], .3], wolf: [TL.enc.wolf[0], .3], bear: [TL.enc.bear[0], .15], fox: [TL.enc.fox[0], .35] };
-  const shadows = {};
-  for (const k in cast) { const [x, z] = POS[k]; cast[k].position.set(x, 0, z); scene.add(cast[k]); shadows[k] = blob(.45, .45); shadows[k].position.set(x, .02, z + .05); scene.add(shadows[k]); }
+  for (const k in A) { const a = A[k]; scene.add(a.rig.root); a.blob = blob(k === 'bear' ? .9 : k === 'wolf' || k === 'deer' ? .7 : .4, .4); scene.add(a.blob); }
+  const birds = []; for (let i = 0; i < 14; i++) { const b = RIG.bird(i % 3 ? 'feather' : 'bear'); scene.add(b.root); birds.push(b); }
+  const flies2 = []; for (let i = 0; i < 8; i++) { const b = RIG.butterfly(['wingB', 'wingY', 'petalR'][i % 3] === 'petalR' ? 'red' : ['wingB', 'wingY', 'wingY'][i % 3]); scene.add(b.root); flies2.push(b); }
   const K = voxKolobok(.55); scene.add(K.mesh); const kShadow = blob(.3, .45); scene.add(kShadow);
   const sparks = particles(60, (i, t, o) => {
     // pop sparkles around whoever just appeared (set by update)
@@ -138,19 +165,34 @@ export function buildWorld() {
     const kp = kolobokPath(t); K.mesh.visible = kp.vis; kShadow.visible = kp.vis && kp.y < .3;
     if (kp.vis) { K.set(kp.ang); K.mesh.position.set(kp.x, kp.y, kp.z); kShadow.position.set(kp.x, .02, kp.z + .03); kShadow.scale.setScalar(1 - Math.min(.6, kp.y * .4)); }
 
-    // —— who is on stage ——
-    const on = {
-      ded: popScale(t, 3.6, 9), baba: popScale(t, 3.9, 9),
-      hare: popScale(t, TL.enc.hare[1] - .5, 28.6), wolf: popScale(t, TL.enc.wolf[1] - .5, 34.3), bear: popScale(t, TL.enc.bear[1] - .5, 40.0), fox: popScale(t, TL.enc.fox[1] - .2, 99),
-    };
-    for (const k in cast) { const s = on[k]; cast[k].visible = s > .01; cast[k].scale.set(1, Math.max(.01, s), 1); shadows[k].visible = s > .01; cast[k].rotation.y = Math.atan2(cam.position.x - cast[k].position.x, cam.position.z - cast[k].position.z) * .35; }
-    if (shot.id === 'night' && t > 53) { cast.fox.visible = false; shadows.fox.visible = false; }
-    let last = null, lastT = -9;
-    for (const [k, t0] of [['ded', 3.6], ['baba', 3.9], ['hare', TL.enc.hare[1] - .5], ['wolf', TL.enc.wolf[1] - .5], ['bear', TL.enc.bear[1] - .5], ['fox', TL.enc.fox[1] - .2]]) if (t >= t0 && t0 > lastT) { last = k; lastT = t0; }
-    if (last && t - lastT < 1) { sparkState.t0 = lastT; sparkState.x = cast[last].position.x; sparkState.y = 1; sparkState.z = cast[last].position.z; }
-    else if (t >= 20.0 && t < 21) { sparkState.t0 = 20.0; sparkState.x = 1.5; sparkState.y = 1.1; sparkState.z = -2.2; }
+    // —— creatures ——
+    for (const k in A) {
+      const a = A[k], on = t >= a.vis[0] && t <= a.vis[1]; a.rig.root.visible = on; a.blob.visible = on; if (!on) continue;
+      const p = a.p(t), moving = p.v > .02;
+      let yaw;
+      if (moving) yaw = yawOf(p.dir, a.quad);
+      else { const restYaw = a.rest, prev = p.dir == null ? restYaw : yawOf(p.dir, a.quad);
+        yaw = t > p.tNext - .45 && p.nextDir != null ? blendAngle(restYaw, yawOf(p.nextDir, a.quad), ss(seg(t, p.tNext - .45, p.tNext))) : blendAngle(prev, restYaw, ss(seg(t, p.tStop, p.tStop + .5))); }
+      a.rig.root.position.set(p.x, a.y ?? 0, p.z); a.rig.root.rotation.y = yaw;
+      const S = { t, phase: p.d / (a.rig.stride ?? 1), moving: moving ? Math.min(1, p.v * 1.4 + .3) : 0, look: 0 };
+      if (k === 'bear') S.rear = ss(seg(t, 35.5, 36.2)) * (1 - ss(seg(t, 37.8, 38.4)));
+      if (k === 'fox') S.sit = ss(seg(t, 42.0, 42.6)) * (1 - ss(seg(t, 51.0, 51.6)));
+      if (k === 'deer') S.nod = t < 43 || t > 45.5 ? 1 : 0;
+      if (k === 'hare' && !moving) S.look = Math.sin(t * 2) * .15;
+      if (k === 'ded' && t > 5.0 && t < 8.4) S.wave = ss(seg(t, 5.0, 5.4)) * (1 - ss(seg(t, 7.8, 8.4)));
+      a.rig.pose(S);
+      a.blob.position.set(p.x, .02, p.z + .03);
+    }
+    A.fox.rig.root.updateMatrixWorld(true); if (t < 47.6) { A.fox.rig.root.userData.nose.getWorldPosition(_v); FOXNOSE.x = _v.x; FOXNOSE.y = _v.y; FOXNOSE.z = _v.z; }
+    // birds: flocks crossing the sky in the yard, the birches and the sunset glade
+    const flock = t < 8.6 ? [-14, 7, -8, 2.6] : t > 22.8 && t < 28.6 ? [8, 7.5, -9, 2.8] : t > 40 && t < 48.6 ? [56, 6.5, -10, 2.4] : null;
+    birds.forEach((b, i) => { b.root.visible = !!flock; if (!flock) return; const t0 = t < 8.6 ? 0 : t < 30 ? 22.8 : 40;
+      b.root.position.set(flock[0] + (t - t0) * flock[3] + (i % 5) * -.9, flock[1] + Math.sin(t * 2 + i) * .25 + (i % 3) * .5, flock[2] + (i % 4) * 1.2); b.root.rotation.y = 0; b.pose({ t, seed: i }); });
+    flies2.forEach((b, i) => { const yardB = i < 4, on = yardB ? t < 8.6 : t > 40 && t < 51.5; b.root.visible = on; if (!on) return;
+      const c = yardB ? [-4.6 + (i % 2) * 8, 1.0, -1.0] : [61 + i * 1.2, .8, 1.2];
+      b.root.position.set(c[0] + Math.sin(t * 1.3 + i * 2) * 1.1, c[1] + Math.sin(t * 2.3 + i) * .35, c[2] + Math.cos(t * 1.1 + i) * .7); b.root.rotation.y = Math.atan2(-Math.cos(t * 1.3 + i * 2), -Math.sin(t * 1.1 + i)) ; b.pose({ t, seed: i }); });
+    if (t >= 20.0 && t < 21) { sparkState.t0 = 20.0; sparkState.x = 1.5; sparkState.y = 1.1; sparkState.z = -2.2; }
     sparks.userData.update(t);
-
     // —— camera ——
     const cp = camPath(t, shot); cam.fov = cp.fov; cam.updateProjectionMatrix(); cam.position.copy(cp.p); cam.lookAt(cp.l);
     fill.position.copy(cp.l).add(new THREE.Vector3(.3, 1.6, 2.4)); fill.intensity = shot.id === 'night' ? .5 : 1.1;
@@ -172,10 +214,9 @@ export function buildWorld() {
 
   // anchors for speech bubbles (world positions of heads)
   function heads(t) {
-    const kp = kolobokPath(t);
-    return { ded: new THREE.Vector3(POS.ded[0], 1.9, POS.ded[1]), baba: new THREE.Vector3(POS.baba[0], 1.85, POS.baba[1]),
-      hare: new THREE.Vector3(POS.hare[0], 1.15, POS.hare[1]), wolf: new THREE.Vector3(POS.wolf[0], 1.3, POS.wolf[1]), bear: new THREE.Vector3(POS.bear[0], 2.25, POS.bear[1]),
-      fox: new THREE.Vector3(POS.fox[0], 1.15, POS.fox[1]), kolobok: new THREE.Vector3(kp.x, kp.y + .65, kp.z) };
+    const kp = kolobokPath(t), o = {};
+    for (const k of ['ded', 'baba', 'hare', 'wolf', 'bear', 'fox']) { A[k].rig.root.updateMatrixWorld(true); const v = new THREE.Vector3(); A[k].rig.root.userData.head.getWorldPosition(v); v.y += k === 'bear' ? .55 : k === 'hare' ? .45 : .35; o[k] = v; }
+    o.kolobok = new THREE.Vector3(kp.x, kp.y + .65, kp.z); return o;
   }
   return { scene, update, heads };
 }

@@ -31,6 +31,7 @@ export function popScale(t, t0, t1) {
 }
 
 // kolobok: on the sill, hop, roll in to each animal, roll away, hop onto the fox
+export const FOXNOSE = { x: 65.5, y: .5, z: .35 };
 const R = .275;
 export function kolobokPath(t) {
   const E = TL.enc; let x = 0, y = R, z = .2, vis = false, ang = 0;
@@ -43,7 +44,7 @@ export function kolobokPath(t) {
   else if (t >= 34.29 && t < 40.0) { const ax = E.bear[0] - 2.6; x = t < 38.4 ? roll(42.5, ax, 34.29, E.bear[1]) : roll(ax, ax + 9, 38.4, 40.0); vis = true; }
   else if (t >= 40.0 && t < 48.57) {
     const ax = E.fox[0] - 2.4; x = roll(58.2, ax, 40.0, E.fox[1]); vis = true;
-    if (t >= 47.6) { const k = seg(t, 47.6, 48.45); x = lerp(ax, E.fox[0] - .5, k); y = lerp(R, .78, k) + Math.sin(Math.PI * k) * .6; z = lerp(.2, .42, k); ang = -k * 6; }
+    if (t >= 47.6) { const k = seg(t, 47.6, 48.45); x = lerp(ax, FOXNOSE.x - .1, k); y = lerp(R, FOXNOSE.y + .05, k) + Math.sin(Math.PI * k) * .6; z = lerp(.2, FOXNOSE.z + .1, k); ang = -k * 6; }
   }
   if (vis && ang === 0) ang = -(x / R);
   return { x, y, z, vis, ang };

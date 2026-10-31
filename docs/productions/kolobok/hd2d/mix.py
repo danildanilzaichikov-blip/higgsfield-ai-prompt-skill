@@ -125,6 +125,20 @@ wind(28.6, 34.3); growl(35.1); wind(34.3, 40.0, .025)
 roll(40.0, E["fox"][1]); pop(E["fox"][1] - .2, .1); crickets(40.0, 48.5, .012)
 boing(47.6); chomp(AM)
 crickets(51.4, 60.0); owl(54.6); owl(57.9)
+# footsteps and paws for everyone who walks in and out
+def step(t, g=.06, f=(250, 1800)): n = int(.07 * SR); put(fx, t, bp(noise(.07), *f) * env(n, .001, .02), g, rng.uniform(-.3, .3))
+def thud(t, g=.12): n = int(.18 * SR); tt = np.arange(n) / SR; put(fx, t, (np.sin(2 * np.pi * 60 * tt) + .3 * bp(noise(.18), 100, 600)) * env(n, .002, .05), g)
+for t0, t1, dt in ((3.0, 4.6, .36), (8.57, 10.1, .36)):
+    for k in np.arange(t0, t1, dt): step(k, .05)
+for a, b in ((22.4, 23.7), (27.3, 28.6)):
+    for k in np.arange(a, b, .32): step(k, .05, (150, 900))
+for a, b in ((28.0, 29.6), (33.0, 34.3), (39.9, 41.7), (51.7, 54.6)):
+    for k in np.arange(a, b, .2): step(k, .035, (300, 2500))
+for a, b in ((33.6, 35.3), (38.5, 40.0)):
+    for k in np.arange(a, b, .45): thud(k, .1)
+thud(36.15, .18)
+for i in range(12): bird(rng.uniform(.5, 8.0), .025, rng.uniform(-.8, .8)); bird(rng.uniform(23, 28.4), .025, rng.uniform(-.8, .8))
+owl(36.8)
 # superhero-comic stings on every first appearance: brass stab + timpani + cymbal swish
 def sting(t, root=50):
     d = .9; n = int(d * SR); tt = np.arange(n) / SR; x = np.zeros(n)
@@ -139,6 +153,7 @@ for (t0, t1, key, *_), r in zip(TL["intros"], (50, 53, 55, 57, 45, 43, 52)): sti
 
 mix = mus + fx
 peak = np.abs(mix).max() + 1e-9; mix = mix / peak * .9
+mix = np.tanh(mix * 1.6) / np.tanh(1.6) * .55   # soft limiter: tames the stings and the chomp before loudnorm
 fo = int(1.2 * SR); mix[-fo:] *= np.linspace(1, 0, fo)[:, None]
 os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
 with wave.open(os.path.join(HERE, "out", "mix.wav"), "wb") as w:
