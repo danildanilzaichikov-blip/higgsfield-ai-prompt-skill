@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { billboard } from './px.js';
 import { seg, ss, lerp, clamp, back } from '/core/lib.js';
 import TLjson from './timeline.json' with { type: 'json' };
+import { buildVoxel } from './voxels.js';
 export const TL = TLjson;
 
 const loader = new THREE.TextureLoader(), TEX = {}, META = {};
@@ -15,6 +16,8 @@ export async function loadSprites() {
 export function sprite(name, hM, o = {}) {
   const [w, h] = META[name]; const b = billboard(TEX[name], hM * w / h, hM, o); b.userData.char = name; return b;
 }
+export function voxChar(name, hM) { return buildVoxel(name, hM, { vs: 1.5 }); }
+export function voxKolobok(hM) { const g = buildVoxel('kolobok', hM, { vs: 1, center: true }); return { mesh: g, set(ang) { g.children[0].rotation.z = ang; } }; }
 export function kolobokSprite(hM) {
   const [w, h, n] = META.kolobok, t = TEX.kolobok.clone(); t.needsUpdate = true; t.repeat.set(1 / n, 1);
   const b = billboard(t, hM * w / h, hM, { ay: .5 }); b.userData.char = 'kolobok';

@@ -4,7 +4,7 @@ import { PX, ramp, h2, fbm, ground, woodPlanks, shingles, billboard, glow, blob,
 import { mat, mesh, box, mats, house } from './kit.js';
 import { sky, stars, particles, beamCard, flick } from './fx.js';
 import { track, seg, ss, lerp, clamp } from '/core/lib.js';
-import { TL, sprite, kolobokSprite, popScale, kolobokPath } from './cast.js';
+import { TL, sprite, voxChar, voxKolobok, popScale, kolobokPath } from './cast.js';
 
 const C = c => new THREE.Color(c);
 
@@ -102,13 +102,13 @@ export function buildWorld() {
 
   // —— cast ——
   const cast = {
-    ded: sprite('ded', 1.75), baba: sprite('baba', 1.72), hare: sprite('hare', 1.0), wolf: sprite('wolf', 1.15),
-    bear: sprite('bear', 2.1), fox: sprite('fox', 1.05),
+    ded: voxChar('ded', 1.75), baba: voxChar('baba', 1.72), hare: voxChar('hare', 1.0), wolf: voxChar('wolf', 1.15),
+    bear: voxChar('bear', 2.1), fox: voxChar('fox', 1.05),
   };
   const POS = { ded: [-1.9, -.7], baba: [-.6, -.5], hare: [TL.enc.hare[0], .3], wolf: [TL.enc.wolf[0], .3], bear: [TL.enc.bear[0], .15], fox: [TL.enc.fox[0], .35] };
   const shadows = {};
   for (const k in cast) { const [x, z] = POS[k]; cast[k].position.set(x, 0, z); scene.add(cast[k]); shadows[k] = blob(.45, .45); shadows[k].position.set(x, .02, z + .05); scene.add(shadows[k]); }
-  const K = kolobokSprite(.55); scene.add(K.mesh); const kShadow = blob(.3, .45); scene.add(kShadow);
+  const K = voxKolobok(.55); scene.add(K.mesh); const kShadow = blob(.3, .45); scene.add(kShadow);
   const sparks = particles(60, (i, t, o) => {
     // pop sparkles around whoever just appeared (set by update)
     const p = sparkState; const k = clamp((t - p.t0) / .9); const a = i / 60 * 6.283 + h2(i, 1, 1) * .4;
@@ -143,7 +143,7 @@ export function buildWorld() {
       ded: popScale(t, 3.6, 9), baba: popScale(t, 3.9, 9),
       hare: popScale(t, TL.enc.hare[1] - .5, 28.6), wolf: popScale(t, TL.enc.wolf[1] - .5, 34.3), bear: popScale(t, TL.enc.bear[1] - .5, 40.0), fox: popScale(t, TL.enc.fox[1] - .2, 99),
     };
-    for (const k in cast) { const s = on[k]; cast[k].visible = s > .01; cast[k].scale.set(1, Math.max(.01, s), 1); shadows[k].visible = s > .01; cast[k].rotation.y = Math.atan2(cam.position.x - cast[k].position.x, cam.position.z - cast[k].position.z) * .6; }
+    for (const k in cast) { const s = on[k]; cast[k].visible = s > .01; cast[k].scale.set(1, Math.max(.01, s), 1); shadows[k].visible = s > .01; cast[k].rotation.y = Math.atan2(cam.position.x - cast[k].position.x, cam.position.z - cast[k].position.z) * .35; }
     if (shot.id === 'night' && t > 53) { cast.fox.visible = false; shadows.fox.visible = false; }
     let last = null, lastT = -9;
     for (const [k, t0] of [['ded', 3.6], ['baba', 3.9], ['hare', TL.enc.hare[1] - .5], ['wolf', TL.enc.wolf[1] - .5], ['bear', TL.enc.bear[1] - .5], ['fox', TL.enc.fox[1] - .2]]) if (t >= t0 && t0 > lastT) { last = k; lastT = t0; }

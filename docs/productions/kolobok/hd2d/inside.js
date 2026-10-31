@@ -4,7 +4,7 @@ import { woodPlanks, plaster, glow, blob } from './px.js';
 import { mat, mesh, box, mats, fire, windowQuad } from './kit.js';
 import { particles, beamCard, flick } from './fx.js';
 import { seg, ss, lerp, back } from '/core/lib.js';
-import { sprite, kolobokSprite, popScale } from './cast.js';
+import { sprite, voxChar, voxKolobok, popScale } from './cast.js';
 
 export function buildInside() {
   const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2('#2a1a14', .02); scene.background = new THREE.Color('#120a08');
@@ -40,8 +40,8 @@ export function buildInside() {
   const dust = particles(60, (i, t, o) => { o.x = -1.8 + Math.sin(i + t * .3) * .6 + (i % 7) * .1; o.y = .6 + ((i * .37 + t * .05) % 1) * 1.6; o.z = -2.5 + (i % 5) * .45; o.a = .4 + .3 * Math.sin(t * 2 + i); o.s = .025; o.r = 1; o.g = .95; o.b = .85; }, { soft: 1 });
   scene.add(dust);
   // cast
-  const baba = sprite('baba', 1.72); baba.position.set(-.6, 0, -.2); scene.add(baba); const bs = blob(.45, .5); bs.position.set(-.6, .02, -.15); scene.add(bs);
-  const K = kolobokSprite(.55); scene.add(K.mesh); const ks = blob(.3, .5); scene.add(ks);
+  const baba = voxChar('baba', 1.72); baba.position.set(-.6, 0, -.2); scene.add(baba); const bs = blob(.45, .5); bs.position.set(-.6, .02, -.15); scene.add(bs);
+  const K = voxKolobok(.55); scene.add(K.mesh); const ks = blob(.3, .5); scene.add(ks);
 
   function update(t, shot, cam, post, renderer) {
     const lt = t - shot.a, k = ss(seg(t, shot.a, shot.b));

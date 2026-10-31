@@ -125,6 +125,17 @@ wind(28.6, 34.3); growl(35.1); wind(34.3, 40.0, .025)
 roll(40.0, E["fox"][1]); pop(E["fox"][1] - .2, .1); crickets(40.0, 48.5, .012)
 boing(47.6); chomp(AM)
 crickets(51.4, 60.0); owl(54.6); owl(57.9)
+# superhero-comic stings on every first appearance: brass stab + timpani + cymbal swish
+def sting(t, root=50):
+    d = .9; n = int(d * SR); tt = np.arange(n) / SR; x = np.zeros(n)
+    for m in (root, root + 7, root + 12, root + 16):
+        ph = 2 * np.pi * hz(m) * tt; x += ((ph / np.pi) % 2 - 1)
+    x = lp(x, 2600) * np.exp(-tt / .28) * np.minimum(1, tt / .012)
+    tim = np.sin(2 * np.pi * (70 + 40 * np.exp(-tt * 12)) * tt) * np.exp(-tt / .35)
+    cym = bp(noise(d), 5000, 14000) * np.exp(-tt / .45)
+    put(fx, t, x * .5 + tim * .9 + cym * .25, .35)
+    put(fx, t - .25, bp(noise(.3), 800, 6000) * np.linspace(0, 1, int(.3 * SR)) ** 2, .12)
+for (t0, t1, key, *_), r in zip(TL["intros"], (50, 53, 55, 57, 45, 43, 52)): sting(t0, r)
 
 mix = mus + fx
 peak = np.abs(mix).max() + 1e-9; mix = mix / peak * .9

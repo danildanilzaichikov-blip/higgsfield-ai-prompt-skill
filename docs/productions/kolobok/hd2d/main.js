@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { makePost } from './post_ts.js';
 import { TL, loadSprites } from './cast.js';
-import { drawOverlay, overlayReady, texts } from './ui.js';
+import { drawOverlay, overlayReady, introReady, texts } from './ui.js';
 import { seg, ss } from '/core/lib.js';
 
 const W = 1920, H = 1080, Q = new URLSearchParams(location.search), SS = +(Q.get('ss') ?? 2);
@@ -20,7 +20,7 @@ const SET_OF = id => (id === 'inside' ? 'inside' : 'world');
 const post = makePost(renderer, sets.world.scene, camera, W, H, { ssaa: SS });
 post.bloom.strength = .55; post.bloom.radius = .75; post.bloom.threshold = .85;
 const V = post.vig.uniforms; V.amt.value = .55; V.warm.value = .1; V.contrast.value = .22; V.sat.value = 1.08;
-await overlayReady();
+await overlayReady(); await introReady();
 
 const shotAt = t => TL.shots.find(s => t >= s.a && t < s.b) ?? TL.shots[TL.shots.length - 1];
 const _v = new THREE.Vector3();
