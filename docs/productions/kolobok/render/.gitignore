@@ -1,0 +1,5 @@
+*.mp4
+*.wav
+*.ttf
+chars/*.png
+bg/*.png

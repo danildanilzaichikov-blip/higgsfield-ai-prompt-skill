@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Cartoon agent team.** `/cartoon` (`.claude/commands/cartoon.md`) is a director that turns a
+  plot into multi-clip Seedance 2.5 prompts by briefing seven subagents in `.claude/agents/`:
+  story architect (parts, stages, continuity ledger, split by job), character designer
+  (turnaround sheet for 2.5D, frozen identity blocks), animation supervisor (weight transfer,
+  planted feet, joint direction, anticipation, follow-through), fight choreographer (one
+  exchange per stage, cartoon-safe impacts, real-time speed), layout & camera (2.5D multiplane
+  look, one move per stage), sound designer (bracket syntax, one score in post) and prompt
+  assembler (merge, continuity check, `seedance_lint.py`).
+
 ## v3.42.0 — 2026-10-23
 
 **The learning memory survives a reinstall.** With the README's Claude Code install the filter
